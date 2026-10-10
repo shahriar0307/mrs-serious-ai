@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#100d20">
+<title>Mrs Serious AI - Hey Cutie</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100d20;color:#fff;font-family:Arial,sans-serif;padding:20px}
+.app{max-width:520px;margin:auto}
+header{text-align:center;padding:25px 10px}
+.avatar{width:100px;height:100px;border-radius:50%;margin:auto;background:linear-gradient(135deg,#bd65ff,#4b8cff);display:grid;place-items:center;font-size:48px;box-shadow:0 0 35px #985cff66}
+h1{margin-bottom:5px;color:#e5c7ff}
+.sub{color:#bcb2d3}
+.card{background:#1e1931;border:1px solid #39304f;border-radius:18px;padding:17px;margin:14px 0}
+label{display:block;margin:10px 0 6px;color:#d8c9f2}
+input,textarea{width:100%;padding:13px;border-radius:10px;border:1px solid #51456c;background:#110e20;color:white;font-size:16px}
+button{border:0;border-radius:11px;padding:12px 14px;background:#a66cff;color:#160c25;font-weight:bold;font-size:15px;cursor:pointer}
+button.secondary{background:#332847;color:#fff;border:1px solid #59476e}
+button:disabled{opacity:.5}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.buttons button{flex:1}
+#status{color:#d7baff;min-height:24px;margin:12px 0}
+#result{white-space:pre-wrap;line-height:1.6;overflow-wrap:anywhere}
+a{color:#d9b5ff}
+.small{font-size:13px;color:#b9aecf;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<div class="avatar">💜</div>
+<h1>Mrs Serious AI</h1>
+<div class="sub">তোমার Hey Cutie অ্যাসিস্ট্যান্ট</div>
+<p class="small">তোমার কথা লিখো অথবা মাইক্রোফোন ব্যবহার করো</p>
+</header>
+
+<div class="card">
+<label for="command">তোমার নির্দেশ</label>
+<input id="command" placeholder="যেমন: WhatsApp খোলো">
+<div class="buttons">
+<button id="run">✨ নির্দেশ চালাও</button>
+<button id="mic" class="secondary">🎙️ কথা বলো</button>
+</div>
+<div id="status" role="status">Hey Cutie প্রস্তুত 💜</div>
+<div id="result"></div>
+<div id="actions" class="buttons"></div>
+</div>
+
+<div class="card">
+<h3>📞 তোমার কন্টাক্ট</h3>
+<label for="person">ব্যক্তির নাম</label>
+<input id="person" placeholder="যেমন: মা">
+<label for="phone">ফোন নম্বর</label>
+<input id="phone" type="tel" placeholder="+8801XXXXXXXXX">
+<div class="buttons">
+<button id="save">কন্টাক্ট সেভ</button>
+<button id="showContacts" class="secondary">কন্টাক্ট দেখো</button>
+</div>
+<div id="contactList" class="small"></div>
+</div>
+
+<div class="card">
+<h3>💌 মেসেজ তৈরি করো</h3>
+<label for="recipient">WhatsApp নম্বর (দেশের কোডসহ)</label>
+<input id="recipient" type="tel" placeholder="8801XXXXXXXXX">
+<label for="message">মেসেজ</label>
+<textarea id="message" rows="3" placeholder="তোমার মেসেজ লেখো"></textarea>
+<div class="buttons">
+<button id="waDraft">WhatsApp মেসেজ</button>
+<button id="emailDraft" class="secondary">ইমেইল খসড়া</button>
+</div>
+<label for="email">ইমেইল ঠিকানা (ঐচ্ছিক)</label>
+<input id="email" type="email" placeholder="name@example.com">
+</div>
+
+<div class="card small">
+<strong>গুরুত্বপূর্ণ:</strong> এই অ্যাপ ব্রাউজারেই চলে। কন্টাক্ট এই ব্রাউজারের local storage-এ রাখা হয়। মেসেজ পাঠানোর আগে নিজে যাচাই করবে। মাইক্রোফোন সব ব্রাউজারে কাজ নাও করতে পারে। এই সংস্করণ তোমার কণ্ঠের পরিচয় যাচাই করে না এবং অ্যাপ বন্ধ থাকলে সব সময় “Hey Cutie” শোনে না।
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const statusText=t=>$("status").textContent=t;
+const showResult=t=>$("result").textContent=t;
+const contactsKey="mrsSeriousContacts";
+let pendingAction=null;
+
+function getContacts(){
+ try{return JSON.parse(localStorage.getItem(contactsKey)||"[]")}
+ catch(e){return []}
+}
+function saveContacts(list){
+ localStorage.setItem(contactsKey,JSON.stringify(list));
+}
+function normalize(s){return s.toLowerCase().trim()}
+function digits(s){return s.replace(/\D/g,"")}
+
+function addAction(label,fn){
+ const b=document.createElement("button");
+ b.textContent=label;
+ b.className="secondary";
+ b.onclick=fn;
+ $("actions").appendChild(b);
+}
+function askAction(label,fn){
+ $("actions").replaceChildren();
+ showResult("এই কাজটি করার আগে যাচাই করে নাও।");
+ addAction("হ্যাঁ, চালিয়ে যাও",()=>{
+   $("actions").replaceChildren();
+   fn();
+ });
+ addAction("বাতিল",()=>{
+   $("actions").replaceChildren();
+   showResult("কাজটি বাতিল করা হয়েছে।");
+ });
+}
+
+function openApp(name,url){
+ showResult(name+" খোলার জন্য প্রস্তুত।");
+ askAction(name+" খুলুন",()=>window.open(url,"_blank","noopener"));
+}
+
+function callContact(name){
+ const list=getContacts();
+ const c=list.find(x=>normalize(x.name)===normalize(name));
+ if(!c){
+  showResult("এই নামে কন্টাক্ট পাইনি। আগে কন্টাক্ট সেভ করো।");
+  return;
+ }
+ showResult(c.name+" — "+c.phone);
+ askAction("কল করার আগে নিশ্চিত করো",()=>location.href="tel:"+c.phone);
+}
+
+function processCommand(raw){
+ const s=normalize(raw);
+ $("actions").replaceChildren();
+ showResult("");
+ if(!s){statusText("আগে একটি নির্দেশ লেখো।");return;}
+ statusText("তোমার নির্দেশ: "+raw);
+
+ if(s.includes("facebook")){
+  openApp("Facebook","https://www.facebook.com/");return;
+ }
+ if(s.includes("whatsapp")||s.includes("হোয়াটসঅ্যাপ")||s.includes("হোয়াটসঅ্যাপ")){
+  openApp("WhatsApp","https://web.whatsapp.com/");return;
+ }
+ if(s.includes("youtube")||s.includes("ইউটিউব")){
+  openApp("YouTube","https://www.youtube.com/");return;
+ }
+ if(s.includes("instagram")||s.includes("ইনস্টাগ্রাম")){
+  openApp("Instagram","https://www.instagram.com/");return;
+ }
+ if(s.includes("google")||s.includes("গুগল")){
+  openApp("Google","https://www.google.com/");return;
+ }
+ if(s.includes("ইমেইল")||s.includes("email")||s.includes("মেইল")){
+  showResult("নিচের ইমেইল খসড়া বোতামে চাপ দিয়ে ইমেইল তৈরি করো।");return;
+ }
+ if(s.includes("কল")||s.startsWith("call ")){
+  let name=raw.replace(/কল করো|কল দাও|কল|call/gi,"").trim();
+  callContact(name);return;
+ }
+ if(s.includes("hey cutie")||s.includes("হেই কিউটি")){
+  showResult("জি, বলো! আমি Mrs Serious। কী করতে চাও?");return;
+ }
+ showResult("আমি এখনো এই নির্দেশটি বুঝতে পারিনি। আপাতত Facebook, WhatsApp, YouTube, Instagram, Google এবং সেভ করা কন্টাক্টে কলের নির্দেশ দিতে পারো।");
+}
+
+$("run").onclick=()=>processCommand($("command").value);
+$("command").addEventListener("keydown",e=>{
+ if(e.key==="Enter")processCommand($("command").value);
+});
+
+$("mic").onclick=()=>{
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){
+  statusText("এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়। নির্দেশ লিখে ব্যবহার করো।");
+  return;
+ }
+ const r=new SR();
+ r.lang="bn-BD";
+ r.interimResults=false;
+ r.maxAlternatives=1;
+ statusText("শুনছি... এখন কথা বলো।");
+ r.onresult=e=>{
+  const heard=e.results[0][0].transcript;
+  $("command").value=heard;
+  processCommand(heard);
+ };
+ r.onerror=e=>statusText("ভয়েসে সমস্যা: "+e.error+". চাইলে লিখে নির্দেশ দাও।");
+ r.onend=()=>{};
+ try{r.start()}catch(e){statusText("মাইক্রোফোন চালু করা যায়নি। আবার চেষ্টা করো।")}
+};
+
+$("save").onclick=()=>{
+ const name=$("person").value.trim();
+ const phone=$("phone").value.trim();
+ if(!name||!phone){statusText("নাম ও ফোন নম্বর দুটোই লেখো।");return;}
+ const list=getContacts().filter(c=>normalize(c.name)!==normalize(name));
+ list.push({name,phone});
+ saveContacts(list);
+ statusText("কন্টাক্ট সেভ হয়েছে: "+name);
+ $("person").value="";
+ $("phone").value="";
+};
+
+$("showContacts").onclick=()=>{
+ const list=getContacts();
+ $("contactList").textContent=list.length?
+ list.map(c=>c.name+" — "+c.phone).join("\n"):
+ "এখনো কোনো কন্টাক্ট সেভ করা হয়নি।";
+};
+
+$("waDraft").onclick=()=>{
+ const phone=digits($("recipient").value);
+ const msg=$("message").value.trim();
+ if(phone.length<8||!msg){
+  statusText("সঠিক নম্বর ও মেসেজ লেখো।");return;
+ }
+ const url="https://wa.me/"+phone+"?text="+encodeURIComponent(msg);
+ showResult("WhatsApp-এ মেসেজের খসড়া তৈরি হয়েছে। পাঠানোর আগে প্রাপক ও মেসেজ যাচাই করো।");
+ askAction("WhatsApp খুলুন",()=>window.open(url,"_blank","noopener"));
+};
+
+$("emailDraft").onclick=()=>{
+ const email=$("email").value.trim();
+ const msg=$("message").value.trim();
+ const url="mailto:"+encodeURIComponent(email)+
+ "?subject="+encodeURIComponent("Mrs Serious AI")+
+ "&body="+encodeURIComponent(msg);
+ showResult("ইমেইল অ্যাপ খুলে খসড়া তৈরি হবে। পাঠানোর আগে যাচাই করো।");
+ askAction("ইমেইল খসড়া খুলুন",()=>location.href=url);
+};
+</script>
+</body>
+</html>
